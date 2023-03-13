@@ -1,5 +1,6 @@
 import logging
 import random
+import sys
 from enum import Enum
 import json
 import os
@@ -15,6 +16,7 @@ class Hero:
     """
     A class representing a Hero
     """
+
     def __init__(self, name: str):
         """Initialize a new instance of the Hero class.
                 Args:
@@ -37,7 +39,7 @@ class Hero:
         """Return hero name"""
         return self.name
 
-    def get_info(self)->None:
+    def get_info(self) -> None:
         """Displays information about the hero"""
         logging.info(
             f"Name: {self.name}, Position: {self.coords}, Previous position: {self.previous_coords} "
@@ -210,6 +212,7 @@ class Maze:
 
 class Game:
     """The class with a game"""
+
     def __init__(self):
         """Initialize a new instance of the Maze class.
                 Args:
@@ -244,7 +247,7 @@ class Game:
             json.dump(data, f)
         logging.info("Save was successful")
 
-    def starting_game(self):
+    def starting_new_game(self):
         """New game"""
         logging.info('Choose the number of heroes: ')
         try:
@@ -255,17 +258,16 @@ class Game:
             logging.info('All heroes were added.')
         except ValueError:
             logging.critical("Game was closed. Please write only number.")
-            return
+            sys.exit()
         logging.info('Game was starting...')
 
     def game(self):
         """Realization of choosing game actions """
-        if os.path.isfile('heroes.json'):
-            choose_start = True
-        else:
-            choose_start = False
-        while choose_start:
-            if os.path.isfile('heroes.json'):
+        while True:
+            if not os.path.isfile('heroes.json'):
+                self.starting_new_game()
+                break
+            else:
                 logging.info(f"You have save file. Do you want continue?(y/n)")
             result = input()
             if result.strip().lower() == 'y':
@@ -273,12 +275,11 @@ class Game:
                 logging.info('Game was continue...')
                 break
             if result.strip().lower() == 'n':
-                choose_start = False
-                continue
+                os.remove('heroes.json')
+                logging.info('Save was deleting')
+                self.starting_new_game()
+                break
             logging.info('Incorrect command. Please type y or n.')
-        else:
-            self.starting_game()
-
         while True:
             if len(self.heroes) == 0:
                 logging.info("All heroes died. Game over.")
@@ -288,9 +289,6 @@ class Game:
             for hero in self.heroes:
                 if hero.is_dead():
                     logging.info(f"Hero {hero.get_name()} die.")
-                    if hero.have_key():
-                        self.maze.drop_key(hero.position)
-                        logging.info(f"Key drop in {hero.position}")
                     self.remove_hero(hero)
                     continue
                 logging.info(
@@ -335,7 +333,8 @@ class Game:
                                 logging.info("The save will be made after the moves of all heroes.")
                             logging.info(f"The hero {hero.get_name()} makes his move again.")
                         case 'exit':
-                            raise Exception('Game was closed.')
+                            logging.info('Game was closed.')
+                            sys.exit()
                         case _:
                             logging.info(f"Unknown command. Please try again or type 'help' to see the list of "
                                          f"available commands.")
@@ -399,15 +398,18 @@ class Game:
         if move_result == "boss":
             if hero.have_key():
                 logging.info(f"Hero {hero.get_name()} wins!")
-                raise Exception('End the game. Thanks for playing')
+                logging.info('End the game. Thanks for playing')
+                sys.exit()
             else:
                 logging.info(f"Hero {hero.get_name()} is killed by the golem. Game over.")
                 self.remove_hero(hero)
         elif move_result == "fail":
-            hero.take_damage(DamageType.WALL)
             if not hero.is_alive():
                 logging.info(f"Hero {hero.get_name()} die.")
                 self.remove_hero(hero)
+            else:
+                hero.take_damage(DamageType.WALL)
+
         else:
             x, y = hero.coords
             hero.coords = x + delta_x, y + delta_y
@@ -427,10 +429,10 @@ class Game:
                 if h != hero and h.coords == hero.coords:
                     logging.info(f"Another hero, {h.get_name()}, is here.")
             if move_result == "burned":
-                hero.take_damage(DamageType.FIRE)
                 if not hero.is_alive():
                     logging.info(f"Hero {hero.get_name()} die.")
                     self.remove_hero(hero)
+                hero.take_damage(DamageType.FIRE)
 
     def add_hero(self, name: str):
         """Add new hero in list of heroes"""
